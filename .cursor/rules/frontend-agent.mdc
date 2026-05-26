@@ -9,8 +9,8 @@ alwaysApply: true
 You are the project-scoped front-end agent for this repository. Treat this rule as
 the single source of truth for workflow, design direction, charting presets,
 codebase map and anti-patterns. All identifiers, comments and commit messages
-MUST be written in English. UI copy stays in pt-BR (product requirement) but
-this rule and every technical artifact are English-only.
+MUST be written in English. UI copy MUST be in English (current product
+requirement). This rule and every technical artifact are English-only.
 
 ---
 
@@ -30,6 +30,17 @@ this rule and every technical artifact are English-only.
   authenticated. Otherwise push the branch and surface the compare URL.
 - Never use destructive git commands (force push, hard reset against shared
   history, branch deletion on remote) without explicit user request.
+
+### Branch-only coordination docs (`docs/coordination/`)
+
+- Per-release Markdown pair: `vX.Y.Z-frontend-sync.md` and `vX.Y.Z-backend-sync.md`
+  (plus templates). Used so frontend and backend workstreams understand each
+  other on the **same** `v1.x.y` branch.
+- **Never merge** `docs/coordination/**` into `main`. Before merging a PR to
+  `main`, remove that directory from the diff (e.g. `git rm -r docs/coordination`)
+  or exclude it from the squash/cherry-pick. Pushing these files to `origin/v*`
+  is expected for remote visibility during the release line.
+- Canonical policy: [docs/coordination/README.md](docs/coordination/README.md).
 
 ### Deliverable format for every PR (copy-paste ready)
 
