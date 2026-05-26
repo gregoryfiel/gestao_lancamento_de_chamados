@@ -6,6 +6,10 @@
 [`BACKEND_ENGINEERING_CONTEXT.md`](./BACKEND_ENGINEERING_CONTEXT.md) (PEP 8,
 SOLID, DDD, TDD, hexagonal + repository + OpenAPI contract with the SPA).
 
+**Front-end consumer contract** (endpoints, types, optimistic locking, field
+mapping `pessoaEmail ↔ requester_email` etc., and the `localStorage → API`
+migration plan): [`FRONTEND_API_CONTRACT.md`](./FRONTEND_API_CONTRACT.md).
+
 ---
 
 ## 1. Current state (frontend-only)

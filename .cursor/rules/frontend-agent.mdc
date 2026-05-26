@@ -12,6 +12,13 @@ codebase map and anti-patterns. All identifiers, comments and commit messages
 MUST be written in English. UI copy MUST be in English (current product
 requirement). This rule and every technical artifact are English-only.
 
+**Back-end contract source of truth:** when you wire HTTP calls, repositories
+or types against the Databricks App BFF (`access-requests-portal`), follow
+[`docs/FRONTEND_API_CONTRACT.md`](../../docs/FRONTEND_API_CONTRACT.md) (HTTP
+shape, field mapping, migration plan) and the cross-cutting standards in
+[`docs/BACKEND_ENGINEERING_CONTEXT.md`](../../docs/BACKEND_ENGINEERING_CONTEXT.md).
+Do not hand-roll API types — generate from `/api/v1/openapi.json`.
+
 ---
 
 ## 1. Git workflow (mandatory, no exceptions)

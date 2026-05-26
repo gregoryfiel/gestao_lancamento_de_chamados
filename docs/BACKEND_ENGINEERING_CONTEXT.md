@@ -174,3 +174,9 @@ Application use cases + Pydantic DTOs + FastAPI DI**, with **OpenAPI** as the
 shared contract with the SPA. Enforce **PEP 8, SOLID, DDD layering, and TDD**
 for new and touched code so new endpoints remain **plug-in friendly** and the
 front end can evolve against a **stable, documented API surface**.
+
+The consumer-facing view of that surface lives in
+[`FRONTEND_API_CONTRACT.md`](./FRONTEND_API_CONTRACT.md) (endpoints, request /
+response shapes, error envelope, optimistic locking, field mapping from the
+SPA `Ticket` to `TicketRead`, and the `localStorage → API` migration plan).
+Keep both documents in sync whenever the contract evolves.
