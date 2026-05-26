@@ -1,0 +1,83 @@
+---
+description: Backend BFF / Databricks App — PEP8, SOLID, DDD, TDD, hexagonal + repository patterns; canonical doc docs/BACKEND_ENGINEERING_CONTEXT.md
+alwaysApply: true
+---
+
+# Backend engineering — gestao_lancamento_de_chamados & aligned BFF repos
+
+When implementing or reviewing **Python back-end** work for this product
+(FastAPI BFF, Databricks App, Unity Catalog, ADO `access-requests-portal`, or
+coordination docs), treat **`docs/BACKEND_ENGINEERING_CONTEXT.md`** (repository
+root) as the **single source of truth** for architecture and quality bar.
+
+## Binding rules (summary)
+
+- **PEP 8** for all Python; clear public module docstrings.
+- **SOLID:** thin HTTP layer; business logic not trapped in route handlers.
+- **DDD:** separate **domain**, **application** (use cases), **infrastructure**
+  (Databricks SDK, SQL); routes map HTTP ↔ DTOs ↔ use cases only.
+- **TDD:** add or extend tests with every behavioral change when a harness
+  exists; otherwise document manual checks and add the smallest locking test
+  as soon as feasible.
+
+## Default design stack (pluggable, FE-friendly)
+
+1. **Hexagonal (ports & adapters)** — domain/application must not import
+   `WorkspaceClient` or build raw SQL; use **ports** (`Protocol` / ABCs) and
+   **adapters** in infrastructure.
+2. **Repository** per aggregate (`Ticket`, events stream) with use-case-oriented
+   method names aligned with future SPA `TicketsRepository` operations.
+3. **Application services / one handler per use case** — new API behavior =
+   new module + wire in router `deps`, not growth of monolith files.
+4. **Pydantic at the boundary** + versioned **`/api/v1`** + **OpenAPI** as the
+   shared contract with the front end (optional TS client generation later).
+
+Identifiers, comments, commit messages, and technical Markdown stay **English**.
+User-facing responses may follow product language when specified elsewhere.
+
+## Git workflow per repository (binding)
+
+This product is mirrored across two Git remotes with **different branching
+contracts**. Always honor them.
+
+### GitHub — `gregoryfiel/gestao_lancamento_de_chamados`
+
+- **Default = always create a new branch** for any change. Cut from an
+  up-to-date `main` (`git pull --ff-only`).
+- Branch naming **`v1.x.y`** as defined in
+  [`.cursor/rules/frontend-agent.mdc`](./frontend-agent.mdc) §1
+  (increment `x` for feat/improvement, `y` for fix). Backend changes follow the
+  same `v1.x.y` scheme.
+- Conventional Commits in English. PR target: `main`.
+- Never push directly to `main`; never reuse a previously merged `v1.x.y`.
+
+### Azure DevOps — `data-platform-bees-consumer-mkt-strategy-insights`
+(monorepo path `apps/access-requests-portal/`)
+
+- **Default = create a new branch** (`feat/access-requests-portal-…`,
+  `fix/access-requests-portal-…`, etc.) cut from `master`.
+- **Exception:** if the user explicitly asks to keep working on an existing
+  feature branch (e.g. to add a follow-up commit to an open PR before review),
+  stay on that branch. When the user does not specify, ask or default to a
+  **new branch**.
+- Conventional Commits in English. PR target: `master`. Do not modify shared
+  infrastructure files (`app.yaml`, `requirements.txt`, `.gitignore`,
+  `workspace_auth.py`, `ticket_models.py`) unless the task explicitly requires
+  it; CRLF/LF noise must not appear in commits.
+
+### Cross-repo coordination
+
+- Engineering doc canonical home: GitHub `docs/BACKEND_ENGINEERING_CONTEXT.md`.
+  ADO carries only the pointer at
+  `apps/access-requests-portal/docs/ENGINEERING_CONTEXT.md`.
+- Never use destructive Git commands (force push, hard reset, branch delete on
+  remote) on either remote without an explicit user request.
+
+### Standing automation policy (no need to ask)
+
+- **GitHub:** the agent MAY commit and push to the working `v1.x.y` branch
+  without asking. PR creation against `main` still requires explicit user
+  intent unless previously scheduled in the conversation.
+- **ADO:** the agent MAY commit and push to the working feature branch without
+  asking, but **MUST NOT** create or update Pull Requests automatically.
+- Both remotes: keep diffs minimal and commit messages Conventional + English.
