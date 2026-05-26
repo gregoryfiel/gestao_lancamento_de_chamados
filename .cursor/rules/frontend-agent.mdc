@@ -108,17 +108,20 @@ Stack:
 Entry points and layout:
 - `web/index.html`, `web/src/main.tsx`, `web/src/App.tsx`, `web/src/index.css`.
 - `web/src/components/layout/{Sidebar,Header}.tsx` — fixed shell.
-- `web/src/components/ui/{StatusBadge,Skeleton,Toast,CatalogBadge,Modal}.tsx` —
+- `web/src/components/ui/{StatusBadge,Skeleton,Toast,CatalogBadge,Modal,ThemeToggle}.tsx` —
   reusable primitives.
 - `web/src/components/{TicketsTable,CreateTicketForm,TicketDrawer,EmptyState,ErrorBanner,HealthIndicator}.tsx`.
 - `web/src/contexts/ToastContext.tsx` — toast provider + hook.
+- `web/src/contexts/ThemeContext.tsx` — theme provider + `useTheme()`; flips
+  `<html class="light">` and persists choice in `localStorage['arp-theme']`.
 - `web/src/lib/api-types.ts`, `web/src/lib/useTickets.ts`,
   `web/src/lib/repositories/{TicketsRepository,HttpTicketsRepository}.ts`.
 
 Persistence:
 - No `localStorage` for business data. Source of truth is the BFF
-  (`/api/v1/tickets` against Unity Catalog Delta). Toasts/UI prefs MAY live in
-  `localStorage`, never credentials/tokens/PII.
+  (`/api/v1/tickets` against Unity Catalog Delta). UI prefs MAY live in
+  `localStorage`; the only allowed key today is **`arp-theme`**
+  (`'dark'`/`'light'`). Never credentials/tokens/PII.
 
 Build pipeline:
 - `cd apps/access-requests-portal/web && npm install && npm run build`.
@@ -166,14 +169,24 @@ Re-read for tone and component shape:
 
 ### Do adopt
 
-- **Dark-first shell** (`bg-slate-950 text-slate-200`). Optional light theme via
-  `:root.light` CSS vars (parity is a later concern).
+- **Dual theme — dark default, light first-class.** The shell ships in dark
+  mode (`bg-slate-950 text-slate-200`) but every chrome and content surface
+  MUST have a working `.light` override declared in `web/src/index.css` (see
+  §4 "Light theme overrides"). Parity is required, not optional.
+- **Theme toggle (mandatory header control).** A `Sun`/`Moon` icon button
+  lives in the `Header` next to `Refresh`, calling a `useTheme()` hook backed
+  by `ThemeProvider`. The user choice persists in `localStorage` under the
+  key **`arp-theme`** (`'dark'` | `'light'`). First-visit default honors
+  `window.matchMedia('(prefers-color-scheme: light)')`; user choice always
+  wins thereafter. Toggling flips `<html class="light">` on/off — that is the
+  single source of truth for all `.light` overrides.
 - **Fixed sidebar** (`w-20` mobile / `w-64` md+), `bg-slate-900 border-r
   border-slate-800`. Grouped nav with sub-items; active group in
   `indigo-600/10 + indigo-400 + indigo-600/20 border`, active sub-item in
   `text-cyan-400 bg-cyan-500/5`.
-- **Header** with bold H1, supporting paragraph, primary Refresh button in
-  `bg-indigo-600 hover:bg-indigo-700 text-white`. Secondary buttons:
+- **Header** with bold H1, supporting paragraph, then the action group:
+  `HealthIndicator` → `ThemeToggle` → `Refresh` (`bg-indigo-600
+  hover:bg-indigo-700 text-white`) → `+ New ticket`. Secondary buttons:
   `bg-slate-900 border border-slate-700 rounded-lg text-slate-400 hover:text-white`.
 - **Cards**: `bg-slate-800/50 border border-slate-700 rounded-xl p-4–5`.
   Hero/highlighted cards may use `bg-gradient-to-br from-slate-800/80
@@ -222,9 +235,8 @@ Re-read for tone and component shape:
 
 ### Colors
 
-Surfaces:
-- Page: `bg-slate-950`. Light theme override via `:root.light` CSS vars when
-  applicable.
+Surfaces (dark, default):
+- Page: `bg-slate-950`.
 - Sidebar / inputs / secondary buttons: `bg-slate-900`.
 - Cards: `bg-slate-800/50` (default) or `from-slate-800/80 to-slate-900/80`
   gradient (hero/highlighted cards only).
@@ -251,6 +263,39 @@ Status (soft fill + soft border, paired with icon + label):
 
 Catalog env badge (top-right floater):
 - PROD = rose, UAT = amber, SIT = sky, LOCAL = slate.
+
+### Light theme overrides
+
+The `.light` class on `<html>` (toggled by `ThemeProvider`) is the single
+source of truth for the light palette. Declare overrides in
+`web/src/index.css` for every slate utility actually used in the SPA. Recipe:
+
+| Token (dark) | Light value | Purpose |
+|---|---|---|
+| `bg-slate-950` | `#f8fafc` | Page background |
+| `bg-slate-900` | `#ffffff` | Sidebar, inputs, secondary buttons |
+| `bg-slate-900/95` | `rgba(255,255,255,0.95)` | Sticky table head, toasts |
+| `bg-slate-800` | `#ffffff` | Modal dialog surface |
+| `bg-slate-800/50` | `#f1f5f9` | Default cards |
+| `bg-slate-800/40` | `#f8fafc` | Empty state |
+| `bg-slate-800/60` (hover) | `#e2e8f0` | Row hover |
+| `border-slate-700` / `border-slate-800` | `#e2e8f0` | All separators |
+| `text-white` / `text-slate-100` / `text-slate-200` | `#0f172a` / `#1e293b` | Headings & body |
+| `text-slate-300` / `text-slate-400` | `#334155` / `#64748b` | Body 2° / captions |
+| `text-slate-500` / `text-slate-600` | `#94a3b8` / `#cbd5e1` | Hints / disabled |
+| `text-cyan-300` / `text-cyan-400` | `#0e7490` / `#0891b2` | IDs, focus link |
+| `text-indigo-400` | `#4f46e5` | Active nav text |
+| Soft-fill status text (`text-{tone}-400`, `text-{tone}-200/300`) | `text-{tone}-600/700` | Same status hue, deeper for light bg |
+| `bg-black/60` / `bg-black/50` | `rgba(15,23,42,0.4)` / `rgba(15,23,42,0.3)` | Modal/drawer scrim |
+| Scrollbar thumb | `rgba(148,163,184,0.8)` | Slate-400-ish on slate-100 track |
+
+Rules for new chrome:
+- Any new slate utility you add MUST get a matching `.light` override (or use
+  one already in the table above).
+- Accent colors (`indigo-*`, `cyan-*`) keep their hue in light mode but lean
+  to `*-500`/`*-600`/`*-700` for legible text/icon on light surfaces.
+- Status soft-fill backgrounds (`{color}-500/10` + `{color}-500/20` border)
+  work in both themes; only the **text** layer needs an override.
 
 ### Typography
 
@@ -303,10 +348,13 @@ Catalog env badge (top-right floater):
 
 ### Backgrounds
 
-- Body always `bg-slate-950`. Surfaces use slate-900/800.
-- No gradients on layout chrome (sidebar, header, buttons).
+- Default dark body: `bg-slate-950`. Surfaces use slate-900/800; the
+  `.light` overrides (see "Light theme overrides" above) flip them to white /
+  slate-50 / slate-100.
+- No gradients on layout chrome (sidebar, header, buttons) — in either theme.
 - Gradients allowed only on: logo halo, brand title text, one optional hero
-  KPI card per screen, and chart fills via `<linearGradient>` defs.
+  KPI card per screen, and chart fills via `<linearGradient>` defs. Chart
+  gradient stops MAY differ slightly between themes (lower opacity on light).
 
 ---
 
@@ -410,7 +458,12 @@ Reject or rewrite any PR that does the following:
   pie/donut with 5+ slices.
 - Adds a new top-level route or screen without honoring the sidebar/header
   shell (fixed sidebar 80/256px, env badge top-right, header with H1 +
-  subtitle).
+  subtitle, `ThemeToggle` next to `Refresh`).
+- Ships chrome that looks broken under `<html class="light">` (any new
+  slate/black utility class MUST have a matching `.light` override in
+  `web/src/index.css`, or reuse one already declared).
+- Persists the theme choice anywhere other than `localStorage['arp-theme']`
+  (allowed UI-pref key); or hard-codes the theme bypassing `useTheme()`.
 - Hand-writes new BFF response types when the contract already exposes them
   via `/api/v1/openapi.json` (generate them; do not drift the contract).
 - Modifies ADO shared infra files (`app.yaml`, `requirements.txt`,
