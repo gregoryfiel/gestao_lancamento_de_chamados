@@ -2,6 +2,10 @@
 
 > **pt-BR (contexto):** Este arquivo registra a decisão de **priorizar backend e integração com Excel** antes de grandes ondas de modernização do front. O texto técnico abaixo está em **inglês** (padrão do projeto). Use-o como briefing para o agente ou desenvolvedor de backend.
 
+**Engineering standards (Python BFF, Databricks, plugável):** see
+[`BACKEND_ENGINEERING_CONTEXT.md`](./BACKEND_ENGINEERING_CONTEXT.md) (PEP 8,
+SOLID, DDD, TDD, hexagonal + repository + OpenAPI contract with the SPA).
+
 ---
 
 ## 1. Current state (frontend-only)
