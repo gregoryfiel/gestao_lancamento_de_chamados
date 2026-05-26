@@ -1,63 +1,90 @@
 ---
-description: Frontend agent for gestao_lancamento_de_chamados — workflow, design direction, chart presets, codebase map and anti-patterns
-globs: src/**/*.{ts,tsx,css},package.json,vite.config.ts,tailwind*,tsconfig*,index.html,*.md
+description: Frontend agent for the access-requests-portal SPA — workflow, ABI Martech visual identity, chart presets, codebase map and anti-patterns
+globs: src/**/*.{ts,tsx,css},apps/access-requests-portal/web/**/*.{ts,tsx,css},package.json,vite.config.ts,tailwind*,tsconfig*,index.html,*.md
 alwaysApply: true
 ---
 
-# Frontend Agent — gestao_lancamento_de_chamados
+# Frontend Agent — access-requests-portal SPA (ABI Martech)
 
-You are the project-scoped front-end agent for this repository. Treat this rule as
-the single source of truth for workflow, design direction, charting presets,
-codebase map and anti-patterns. All identifiers, comments and commit messages
-MUST be written in English. UI copy MUST be in English (current product
-requirement). This rule and every technical artifact are English-only.
+You are the project-scoped front-end agent for the **Access Requests Portal**.
+Treat this rule as the single source of truth for workflow, visual identity,
+charting presets, codebase map and anti-patterns. All identifiers, comments and
+commit messages MUST be written in English. UI copy MUST be in English (current
+product requirement).
+
+> **Canonical SPA location (since v1.4.0):** the active SPA source is the
+> **Azure DevOps monorepo** at
+> `apps/access-requests-portal/web/` inside
+> `data-platform-bees-consumer-mkt-strategy-insights` (Vite 6 + React 19 + TS +
+> Tailwind v4). The GitHub repo `gestao_lancamento_de_chamados` keeps `src/` as
+> **historical reference only** (legacy v0 with `localStorage`, `TicketForm`,
+> `SheetDatabase`, etc.). Do not start new feature work in GitHub `src/`.
+> The GitHub repo continues to own **product documentation** (`docs/`,
+> coordination docs) and these Cursor rules.
 
 **Back-end contract source of truth:** when you wire HTTP calls, repositories
 or types against the Databricks App BFF (`access-requests-portal`), follow
-[`docs/FRONTEND_API_CONTRACT.md`](../../docs/FRONTEND_API_CONTRACT.md) (HTTP
-shape, field mapping, migration plan) and the cross-cutting standards in
+[`docs/FRONTEND_API_CONTRACT.md`](../../docs/FRONTEND_API_CONTRACT.md) and the
+cross-cutting standards in
 [`docs/BACKEND_ENGINEERING_CONTEXT.md`](../../docs/BACKEND_ENGINEERING_CONTEXT.md).
-Do not hand-roll API types — generate from `/api/v1/openapi.json`.
+Do not hand-roll API types beyond v0 — generate from `/api/v1/openapi.json` as
+soon as the contract grows beyond a handful of types.
 
 ---
 
 ## 1. Git workflow (mandatory, no exceptions)
 
+### GitHub — `gregoryfiel/gestao_lancamento_de_chamados`
+(Documentation, this rule, coordination docs.)
+
 - Base branch: `main` (only long-lived branch). Always cut new branches from an
-  up-to-date `main` (`git pull --ff-only` before branching).
+  up-to-date `main` (`git pull --ff-only` before branching). When earlier
+  `v1.x.y` branches have not yet merged, stack on top of the latest unmerged
+  one with `git reset --hard origin/vX.Y.Z` so context is preserved.
 - Branch naming: `v1.x.y`
   - Increment `x` for feature, improvement or new logic. Reset `y` to `0`.
   - Increment `y` for fix, hotfix or bug.
-- Current baseline: `v1.0.0` (tagged on `main` HEAD).
 - Commits: Conventional Commits in English with a short scope. Allowed types:
   `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`.
-  Example: `feat(dashboard): replace heuristic KPI formulas`.
-- One feature branch per logical change. Keep diffs minimal and focused.
 - PR target: `main`. Open via `gh pr create` whenever the CLI is installed and
   authenticated. Otherwise push the branch and surface the compare URL.
 - Never use destructive git commands (force push, hard reset against shared
   history, branch deletion on remote) without explicit user request.
 
-### Branch-only coordination docs (`docs/coordination/`)
+### Azure DevOps — `data-platform-bees-consumer-mkt-strategy-insights`
+(BFF + active SPA at `apps/access-requests-portal/`.)
 
-- Per-release Markdown pair: `vX.Y.Z-frontend-sync.md` and `vX.Y.Z-backend-sync.md`
-  (plus templates). Used so frontend and backend workstreams understand each
-  other on the **same** `v1.x.y` branch.
+- Default = create a new branch `feat/access-requests-portal-<topic>` cut from
+  `master` (`git fetch origin && git checkout master && git pull --ff-only`).
+- Exception: if the user explicitly asks to keep working on an existing feature
+  branch (e.g. to add a follow-up commit before review), stay on that branch.
+- Conventional Commits in English. PR target: `master`.
+- Standing automation policy: the agent MAY commit and push to the working
+  feature branch without asking, but **MUST NOT** create or update Pull
+  Requests automatically.
+- Do not modify shared infrastructure files (`app.yaml`, `requirements.txt`,
+  `.gitignore`, `workspace_auth.py`, `ticket_models.py`) unless the task
+  explicitly requires it; CRLF/LF noise must not appear in commits.
+
+### Branch-only coordination docs (`docs/coordination/`, GitHub only)
+
+- Per-release Markdown pair: `vX.Y.Z-frontend-sync.md` and
+  `vX.Y.Z-backend-sync.md` (plus templates). Used so frontend and backend
+  workstreams understand each other on the **same** `v1.x.y` branch.
 - **Never merge** `docs/coordination/**` into `main`. Before merging a PR to
-  `main`, remove that directory from the diff (e.g. `git rm -r docs/coordination`)
-  or exclude it from the squash/cherry-pick. Pushing these files to `origin/v*`
-  is expected for remote visibility during the release line.
+  `main`, remove that directory from the diff (e.g.
+  `git rm -r docs/coordination`) or exclude it from the squash/cherry-pick.
 - Canonical policy: [docs/coordination/README.md](docs/coordination/README.md).
 
 ### Deliverable format for every PR (copy-paste ready)
 
 Always return to the user the following four blocks, in this order:
 
-1. PR URL — created via `gh pr create` when possible, otherwise the GitHub
-   compare URL
-   `https://github.com/gregoryfiel/gestao_lancamento_de_chamados/compare/main...<branch>?expand=1`.
-2. Title (English): `vX.Y.Z — <conventional commit subject>`
-   Example: `v1.1.0 — docs: add frontend agent rule with project context`.
+1. PR URL — created via `gh pr create` when possible (GitHub) or the Azure
+   DevOps PR creation URL (ADO). When PR creation is out of policy (ADO
+   automation rule), provide the compare/branch URL the user can open.
+2. Title (English): `vX.Y.Z — <conventional commit subject>` for GitHub, or
+   `feat(access-requests-portal): <subject>` for ADO.
 3. Body (English) with these sections:
    - `## Summary` — what changed and why.
    - `## Changes` — bullet list of concrete edits and new files.
@@ -67,189 +94,295 @@ Always return to the user the following four blocks, in this order:
 
 ---
 
-## 2. Codebase map (single source of truth)
+## 2. Codebase map
 
-### Stack
-- Build: Vite + React 19 + TypeScript.
-- Styling: Tailwind 4 (single utility-first system, no CSS-in-JS).
-- Icons: `lucide-react`. Animations: `motion`. Charts: `recharts`.
+### Active SPA (do new work here) — ADO `apps/access-requests-portal/web/`
 
-### Persistence
-- No backend, no database. State lives in `localStorage` under the key
-  `ab_inbev_tickets_db_v8`, hydrated and persisted by [src/App.tsx](src/App.tsx).
-- Never persist credentials, tokens or PII in `localStorage`.
+Stack:
+- Build: Vite 6 + React 19 + TypeScript (strict, `ES2022`, `jsx: react-jsx`).
+- Styling: Tailwind 4 via `@tailwindcss/vite`, with `@theme` tokens and CSS
+  variables in `web/src/index.css`. No CSS-in-JS.
+- Icons: `lucide-react`. Charts (when added): `recharts`. Animations:
+  CSS-only (no `framer-motion`/`motion` in v0).
 
-### Entry points
-- [index.html](index.html)
-- [src/main.tsx](src/main.tsx)
-- [src/App.tsx](src/App.tsx)
+Entry points and layout:
+- `web/index.html`, `web/src/main.tsx`, `web/src/App.tsx`, `web/src/index.css`.
+- `web/src/components/layout/{Sidebar,Header}.tsx` — fixed shell.
+- `web/src/components/ui/{StatusBadge,Skeleton,Toast,CatalogBadge,Modal}.tsx` —
+  reusable primitives.
+- `web/src/components/{TicketsTable,CreateTicketForm,TicketDrawer,EmptyState,ErrorBanner,HealthIndicator}.tsx`.
+- `web/src/contexts/ToastContext.tsx` — toast provider + hook.
+- `web/src/lib/api-types.ts`, `web/src/lib/useTickets.ts`,
+  `web/src/lib/repositories/{TicketsRepository,HttpTicketsRepository}.ts`.
 
-### Components (one-line purpose each)
-- [src/components/TicketForm.tsx](src/components/TicketForm.tsx) (~646 lines) —
-  Form 1.0, ticket create/edit plus bulk "Acesso Full".
-- [src/components/TicketForm2.tsx](src/components/TicketForm2.tsx) (~786 lines) —
-  Jira Service Desk clone (Form 2.0). Roughly 80% duplicated from `TicketForm`.
-- [src/components/SheetDatabase.tsx](src/components/SheetDatabase.tsx) (~2.4k
-  lines) — monolith holding filters, CSV/TSV import/export, simulated SharePoint
-  Graph + Jira sync and mass actions. Highest refactor priority.
-- [src/components/Dashboard.tsx](src/components/Dashboard.tsx) — KPIs and
-  Recharts. Current KPI formulas are heuristic and not auditable.
-- [src/components/ToastNotification.tsx](src/components/ToastNotification.tsx) —
-  global toast stack powered by `motion`.
+Persistence:
+- No `localStorage` for business data. Source of truth is the BFF
+  (`/api/v1/tickets` against Unity Catalog Delta). Toasts/UI prefs MAY live in
+  `localStorage`, never credentials/tokens/PII.
 
-### Domain types
-- [src/types.ts](src/types.ts) — `Ticket`, `TicketStatus`, `TicketPriority`,
-  `REQUIRE_SYSTEMS`, `ROLES`, `EQUIPES`, `EMAIL_DOMAINS`.
+Build pipeline:
+- `cd apps/access-requests-portal/web && npm install && npm run build`.
+- Copy `web/dist/*` into `apps/access-requests-portal/static/` (overwrite
+  hashed `static/index.html` and `static/assets/*`). Keep `_smoke.html`.
 
-### Dead dependencies (no usage under `src/`, slated for removal)
-- `firebase`, `express`, `dotenv`, `@google/genai`, `@types/express`.
+### Legacy archive — GitHub `gregoryfiel/gestao_lancamento_de_chamados` `src/`
 
-### Missing infrastructure (known gaps)
-- No automated tests, no ESLint or Prettier config, no `.github/` workflows, no
-  husky hooks.
-- `npm run lint` is currently only `tsc --noEmit`.
-- `npm run clean` references a nonexistent `server.js` and must be fixed or
-  removed.
+Frozen for reference; **do not extend**:
+- [src/components/TicketForm.tsx](src/components/TicketForm.tsx),
+  [src/components/TicketForm2.tsx](src/components/TicketForm2.tsx),
+  [src/components/SheetDatabase.tsx](src/components/SheetDatabase.tsx),
+  [src/components/Dashboard.tsx](src/components/Dashboard.tsx),
+  [src/components/ToastNotification.tsx](src/components/ToastNotification.tsx),
+  [src/types.ts](src/types.ts), legacy `localStorage` key
+  `ab_inbev_tickets_db_v8`.
+- Dead deps (slated for cleanup if anyone returns here): `firebase`, `express`,
+  `dotenv`, `@google/genai`, `@types/express`.
+
+Extract patterns from the legacy tree and **port** them to the ADO `web/` when
+useful; never re-grow `SheetDatabase.tsx`.
 
 ---
 
-## 3. Design direction (binding)
+## 3. Design direction — ABI Martech engineering portal (binding)
 
-### Anti-pattern reference
-The user's other project at
-`C:\Users\gperuzzf\OneDrive - NTT DATA EMEAL\Documentos\ABI\Sandbox VSCode\stuff\martech_framework_pdf`
-is heavily Apple-like / glassmorphic: translucent surfaces with
-`backdrop-filter: blur(22px) saturate(155%)`, radii up to 28px, drop shadows like
-`0 24px 70px rgba(15,23,42,0.18)`, multi-radial ambient gradients, animated orb
-loaders, hero headings `clamp(2.4rem, 5.4vw, 4.8rem)`, gradient pill buttons
-with hover lift. **This project must NOT adopt that look.**
+The visual identity is a **dark engineering portal** modeled on the internal
+ABI Martech Data Quality Portal (ADO repo `martech-data-quality-portal`):
+- Dense, information-rich layouts in the spirit of Linear/Datadog/Grafana but
+  with ABI Martech accents.
+- Indigo as primary action, cyan as highlight/selection, slate-950 as canvas.
+- Soft-fill status pills, fixed sidebar shell, focused gradient touches in
+  chrome only (logo halo, hero KPI cards) — never on whole pages or buttons.
+
+### Reference repo (study patterns, do not copy code wholesale)
+
+Local checkout:
+`C:\Users\gperuzzf\OneDrive - NTT DATA EMEAL\Documentos\ABI\GHQ_B2B_Delta\martech-data-quality-portal`
+
+Re-read for tone and component shape:
+- `src/index.css` (CSS vars, scrollbar, animations, focus styles).
+- `src/components/layout/{Header,Sidebar}.tsx` (shell + gradient halo logo).
+- `src/components/ui/{StatusBadge,Skeleton,Toast}.tsx` (primitives).
+- `src/views/ConsistencyView.tsx` (chart + cards + modal patterns).
+
+### Do adopt
+
+- **Dark-first shell** (`bg-slate-950 text-slate-200`). Optional light theme via
+  `:root.light` CSS vars (parity is a later concern).
+- **Fixed sidebar** (`w-20` mobile / `w-64` md+), `bg-slate-900 border-r
+  border-slate-800`. Grouped nav with sub-items; active group in
+  `indigo-600/10 + indigo-400 + indigo-600/20 border`, active sub-item in
+  `text-cyan-400 bg-cyan-500/5`.
+- **Header** with bold H1, supporting paragraph, primary Refresh button in
+  `bg-indigo-600 hover:bg-indigo-700 text-white`. Secondary buttons:
+  `bg-slate-900 border border-slate-700 rounded-lg text-slate-400 hover:text-white`.
+- **Cards**: `bg-slate-800/50 border border-slate-700 rounded-xl p-4–5`.
+  Hero/highlighted cards may use `bg-gradient-to-br from-slate-800/80
+  to-slate-900/80`. Active/selected card: `ring-2 ring-cyan-500/20` (or
+  `indigo-500/30`) instead of stronger borders.
+- **Soft-fill status badges**: `{color}-500/10` bg + `{color}-400` text +
+  `{color}-500/20` border, always paired with an icon and a label.
+- **Targeted gradients only** in chrome:
+  - Logo halo: `from-indigo-500 via-cyan-500 to-emerald-500 ... blur-sm`.
+  - Brand title text: `bg-clip-text text-transparent` over a slate→white
+    gradient.
+  - Charts: linear gradient defs filling areas under cyan/indigo lines.
+- **Modals**: full-screen overlay `bg-black/60 backdrop-blur-sm`, dialog
+  `bg-slate-800 border border-slate-700 rounded-xl shadow-2xl`.
+- **Animations (CSS-only, all respect `prefers-reduced-motion`)**:
+  `animate-pulse-slow`, `fade-in`, `slide-in-right`, `shimmer`. Focus ring
+  `outline: 2px solid #6366f1` (indigo-500).
+- **Density**: dense tables, `text-xs`/`text-[11px]`/`text-[10px]` for
+  metadata, `JetBrains Mono` for IDs and numeric/aligned columns.
+- **Accessibility**: skip-link, focus-visible outlines, never color alone (pair
+  label + icon), WCAG 2.2 AA contrast on the dark canvas (check small text on
+  `slate-800/50`).
 
 ### Do NOT introduce
-- Glassmorphism or `backdrop-filter`.
-- Multi-radial ambient gradients on layout chrome.
-- Large drop shadows (`shadow-lg` and above) or colored shadows.
-- Oversized rounded corners (anything above 16px).
-- Animated decorative loaders, orb spinners, gradient buttons.
-- Hero typography or marketing-style hero sections.
-- Transform-based hover lifts.
-- Multi-color brand gradients.
 
-### Do adopt — flat minimalism (Linear / Notion / Stripe dashboards)
-- Information density over whitespace. Power users want data, not breathing room.
-- One primary task per screen; progressive disclosure for secondary info.
-- 5–7 primary KPIs maximum (3–5 for executive views).
-- Sidebar: 240–280px expanded, 64–72px collapsed.
-- Main area uses CSS Grid with `auto-fill, minmax(...)`.
-- Skeleton loaders, not spinners. Page interactive in under 2.5s.
-- Sticky filters across navigation within a session.
-- WCAG 2.2 AA baseline. Never rely on color alone — pair label, icon and color.
-- Direct labels beat legends. Bar charts always start at zero. No 3D, no
-  decorative fills.
+- Apple-like glassmorphism on layout chrome (`backdrop-filter` on the page or
+  sidebar). `backdrop-blur-sm` is allowed **only** on modal/overlay scrim.
+- Multi-radial ambient gradients painted on the whole canvas.
+- Marketing hero typography (`clamp(2.4rem, 5.4vw, 4.8rem)`), gradient-fill
+  buttons, transform-based hover lifts (`hover:scale-105`,
+  `hover:translate-y-…`).
+- `rounded-2xl`/`rounded-3xl` or fully circular decorative shapes (badges and
+  avatars excepted).
+- `shadow-lg`+ outside modal dialog containers and the notification panel. No
+  colored hover shadows on regular cards.
+- Animated decorative orbs/loaders. Spinners are OK for in-flight states; the
+  primary loading pattern is **skeleton**.
+- New brand colors outside the slate / indigo / cyan / emerald / amber / rose
+  / sky family without a token update in §4 first.
+- Three or more competing accents in the same region (pick indigo OR cyan as
+  the dominant accent per card/section).
 
 ---
 
 ## 4. Design tokens (source of truth)
 
 ### Colors
-- Neutral scale: Tailwind `slate-50` … `slate-950`.
-- Single semantic accent: pick ONE of `slate-900` (monochrome) or `blue-600`
-  (`#2563eb`) for primary actions and links. Default to `slate-900` to match
-  Linear/Notion neutrality.
-- Status colors (use sparingly, always paired with icon and label):
-  - success `emerald-600`
-  - warning `amber-600`
-  - danger  `rose-600`
-  - info    `sky-600`
-- Remove the existing amber/gold ABI brand accents from layouts; keep the ABI
-  logo monochrome.
+
+Surfaces:
+- Page: `bg-slate-950`. Light theme override via `:root.light` CSS vars when
+  applicable.
+- Sidebar / inputs / secondary buttons: `bg-slate-900`.
+- Cards: `bg-slate-800/50` (default) or `from-slate-800/80 to-slate-900/80`
+  gradient (hero/highlighted cards only).
+- Borders: 1px `border-slate-700` (default), `border-slate-800` (subtle
+  separators).
+
+Text:
+- Headings: `text-white` or `text-slate-200`.
+- Body 2°: `text-slate-400`.
+- Captions/hints: `text-slate-500` / `text-slate-600`.
+
+Accents:
+- **Primary** — `indigo-600` (buttons, primary actions, active nav, refresh).
+  Emphasis tints: `indigo-400/500`. Glow: `indigo-600/10` background +
+  `indigo-600/20` border. Focus: `outline: 2px solid #6366f1`.
+- **Highlight** — `cyan-400` (logo icon, sub-nav active, chart "current"
+  series, selected card ring). Backgrounds: `cyan-500/5`–`cyan-500/20`.
+
+Status (soft fill + soft border, paired with icon + label):
+- success `emerald-500/10 + emerald-400 + emerald-500/20`
+- warning `amber-500/10 + amber-400 + amber-500/20`
+- danger  `rose-500/10 + rose-400 + rose-500/20`
+- info    `sky-500/10 + sky-400 + sky-500/20`
+
+Catalog env badge (top-right floater):
+- PROD = rose, UAT = amber, SIT = sky, LOCAL = slate.
 
 ### Typography
-- Base: `Inter`, then `ui-sans-serif` fallback. Drop the `Space Grotesk`
-  decorative pairing currently set in [src/index.css](src/index.css).
-- Mono: `JetBrains Mono` only for IDs, log areas and table numerics where
-  alignment matters.
-- Tight heading scale, no hero sizes:
-  - `h1` → `text-2xl` (24px)
-  - `h2` → `text-xl`
-  - `h3` → `text-base font-semibold`
-- Default letter-spacing. Do NOT apply tight `-0.045em` on headings.
+
+- Sans: `Inter` + `ui-sans-serif, system-ui` fallback.
+- Mono: `JetBrains Mono` for IDs, log areas and aligned numeric columns.
+- Scale (no hero sizes):
+  - `h1` → `text-2xl font-bold`
+  - `h2` → `text-lg font-semibold`
+  - `h3` → `text-sm font-semibold`
+  - Body: `text-sm`. Metadata: `text-xs` / `text-[11px]`. Hints: `text-[10px]`.
+- Default letter-spacing. Brand title MAY use `bg-clip-text text-transparent`
+  over a slate→white gradient. One optional hero KPI per screen MAY use the
+  same treatment. Nothing else.
 
 ### Radii
-- Default `rounded-md` (6px). Maximum `rounded-lg` (8px) for cards and modals.
-- Forbidden: `rounded-2xl`, `rounded-3xl`, fully circular decorative elements.
 
-### Shadows
-- Only `shadow-xs` or `shadow-sm`. No `shadow-lg`+. No colored shadows.
+- Default `rounded-lg` (8px).
+- Cards/panels/modals `rounded-xl` (12px).
+- Pills/badges/avatars `rounded-full`.
+- **Forbidden:** `rounded-2xl`, `rounded-3xl`.
+
+### Shadows / rings
+
+- Default flat. Use **borders + ring** for separation, not stacked shadows.
+- Active/highlighted cards: `ring-2 ring-cyan-500/20` or
+  `ring-2 ring-indigo-500/30`.
+- `shadow-lg`/`shadow-xl`/`shadow-2xl` allowed **only** on modal dialog
+  containers and floating notification/search panels. Never on regular cards
+  or hover states.
 
 ### Borders
-- 1px `slate-200` for separation. Lean on borders plus spacing rather than
-  shadow stacking.
+
+- 1px `border-slate-700` for default separation.
+- 1px `border-slate-800` for subtle/secondary separation.
+- Status borders follow the soft-fill spec (`{color}-500/20`).
 
 ### Spacing
-- 4px base scale (Tailwind default).
-- Component padding: `p-3` to `p-4`. Avoid `p-8`+ on inner content.
+
+- 4px base (Tailwind default).
+- Component padding: cards `p-4`–`p-5`; toolbars `px-3 py-1.5`; form fields
+  `space-y-4`; compact rows `py-2` / `py-1.5`.
 
 ### Motion
-- Limit transitions to 120–180ms `ease-out` on `color`, `border-color`, `opacity`.
-- No transform-based hover lifts.
-- Always honor `prefers-reduced-motion`.
+
+- Transitions: 120–200ms `ease-out` on `color`, `border-color`, `opacity`,
+  `background-color`. Full-page state transitions may use `duration-300`.
+- Avoid bouncy easings and `transform: scale/translate` on hover.
+- Always honor `@media (prefers-reduced-motion: reduce)`. CSS-only animations
+  must guard with this media query.
 
 ### Backgrounds
-- Solid `bg-white` for surfaces, `bg-slate-50` for page background.
-- No gradients on layout chrome.
+
+- Body always `bg-slate-950`. Surfaces use slate-900/800.
+- No gradients on layout chrome (sidebar, header, buttons).
+- Gradients allowed only on: logo halo, brand title text, one optional hero
+  KPI card per screen, and chart fills via `<linearGradient>` defs.
 
 ---
 
-## 5. Chart presets — Tufte / Darkhorse "Data Looks Better Naked"
+## 5. Chart presets — Recharts on dark canvas
 
-Reference: <https://darkhorsevisualization.com/blog/data-looks-better-naked>
-
-Centralize these presets in `src/lib/chart-presets.ts` (or a sibling module) the
-first time a chart-touching PR lands. Until then, every new Recharts usage MUST
-mirror the exact props below.
+Centralize in `web/src/lib/chart-presets.ts` (export helper components or a
+preset object) the first time a chart-touching PR lands. Until then, every new
+Recharts usage MUST mirror these props.
 
 ```tsx
-<CartesianGrid vertical={false} stroke="rgb(226 232 240)" strokeDasharray="3 3" />
+<CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
 
 <XAxis
   dataKey="..."
-  axisLine={false}
+  tick={{ fill: "#64748b", fontSize: 10 }}
+  axisLine={{ stroke: "#334155" }}
   tickLine={false}
-  tick={{ fontSize: 12, fill: "rgb(100 116 139)" }}
 />
 <YAxis
-  axisLine={false}
+  tick={{ fill: "#64748b", fontSize: 10 }}
+  axisLine={{ stroke: "#334155" }}
   tickLine={false}
-  tick={{ fontSize: 12, fill: "rgb(100 116 139)" }}
-  width={40}
+  width={36}
 />
 
-<Bar dataKey="..." fill="rgb(15 23 42)" radius={[2, 2, 0, 0]} />
+<Bar dataKey="..." fill="#818CF8" radius={[3, 3, 0, 0]} />
 
 <Line
   type="monotone"
   dataKey="..."
-  stroke="rgb(15 23 42)"
+  stroke="#06B6D4"
   strokeWidth={2}
   dot={false}
-  activeDot={{ r: 3 }}
+  activeDot={{ r: 3, fill: "#06B6D4" }}
 />
 
-// Pie / Donut: avoid unless strictly required.
-// When unavoidable: direct labels and at most 4 slices.
+<Area
+  type="monotone"
+  dataKey="..."
+  stroke="#06B6D4"
+  strokeWidth={2}
+  fill="url(#cyanGradient)"
+/>
+```
+
+Gradient defs (declare once per chart):
+
+```tsx
+<defs>
+  <linearGradient id="cyanGradient" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="5%"  stopColor="#06B6D4" stopOpacity={0.25} />
+    <stop offset="95%" stopColor="#06B6D4" stopOpacity={0} />
+  </linearGradient>
+  <linearGradient id="indigoGradient" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="5%"  stopColor="#818CF8" stopOpacity={0.15} />
+    <stop offset="95%" stopColor="#818CF8" stopOpacity={0} />
+  </linearGradient>
+</defs>
 ```
 
 Additional chart rules:
 - Always wrap in `<ResponsiveContainer>`. Container `min-h-[200px]`.
-- Prefer direct labels on series. Only use `<Legend />` when there are 3+ series
-  AND direct labeling is impractical; then `iconType="circle"`, `iconSize={8}`.
-- Bar charts always start at zero. Never use truncated y-axes for emphasis.
-- No 3D, no shadows, no decorative gradient fills. No background panels behind
-  the chart — let it breathe inside its card.
-- Tooltip: minimal custom component, `bg-white`, `border-slate-200`, no shadow
-  stacking.
-- Number formatting: `Intl.NumberFormat('pt-BR')` for counts. ISO or short month
-  format for dates.
+- Bar/line charts always start at zero (no truncated y-axes for emphasis).
+- Annotations on a series: `<ReferenceLine stroke="#F59E0B" strokeWidth={1}
+  strokeDasharray="3 3" strokeOpacity={0.5} />`.
+- Prefer direct labels on series. `<Legend />` is allowed when there are 3+
+  series AND direct labeling is impractical; then `iconType="circle"`,
+  `iconSize={8}`, text in `#94a3b8`.
+- Pie/Donut: avoid unless strictly required. When unavoidable: direct labels
+  and at most 4 slices.
+- Tooltip: minimal dark card —
+  `bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[11px]
+  shadow-lg`. Number formatting: `Intl.NumberFormat('pt-BR')` for counts. ISO
+  or short month for dates.
+- No 3D, no shadow on plot area, no decorative gradient fills outside the
+  `<linearGradient>` defs above.
 
 ---
 
@@ -257,19 +390,32 @@ Additional chart rules:
 
 Reject or rewrite any PR that does the following:
 
-- Reintroduces `firebase`, `express`, `dotenv` or `@google/genai`.
-- Adds `backdrop-filter`, `bg-gradient-*` on chrome, `shadow-lg`+ or
-  `rounded-2xl`+.
-- Adds decorative animations or hero typography.
-- Adds Recharts charts with vertical `CartesianGrid`, visible axis lines,
-  visible tick lines, oversized legends, or pie charts with 5+ slices.
-- Persists credentials or tokens in `localStorage` (the current
-  `SheetDatabase.tsx` does this — it must be replaced before any production
-  use).
-- Grows `SheetDatabase.tsx` further. New planilha logic must be split into
-  smaller modules under `src/components/sheet/` (or similar) following SRP.
-- Duplicates logic across `TicketForm` and `TicketForm2`. Extract shared logic
-  into hooks and presentational components.
+- Reintroduces `firebase`, `express`, `dotenv`, `@google/genai` (or any
+  AI-vendor SDK) in the SPA.
+- Persists credentials or tokens in `localStorage`. The legacy
+  `SheetDatabase.tsx` does this — it is frozen and **must not be ported**
+  without rewriting its persistence layer onto the BFF.
+- Grows `SheetDatabase.tsx`, `TicketForm.tsx` or `TicketForm2.tsx` in the
+  GitHub legacy tree. New ticket logic lands in ADO `web/`.
+- Adds Apple-style glassmorphism on layout chrome (`backdrop-filter` on
+  body/sidebar), multi-radial page gradients, gradient-fill buttons, hero
+  marketing typography, transform-based hover lifts, or decorative orb
+  loaders.
+- Adds `rounded-2xl`/`rounded-3xl`, `shadow-lg`+ on non-modal surfaces,
+  colored hover shadows, or `shadow-*` ring stacking on cards.
+- Introduces hex codes outside the slate / indigo / cyan / emerald / amber /
+  rose / sky palette without first updating §4 in this rule.
+- Adds Recharts charts with vertical `CartesianGrid`, visible tick lines on
+  both axes, light theme tooltip on the dark canvas, oversized legends, or
+  pie/donut with 5+ slices.
+- Adds a new top-level route or screen without honoring the sidebar/header
+  shell (fixed sidebar 80/256px, env badge top-right, header with H1 +
+  subtitle).
+- Hand-writes new BFF response types when the contract already exposes them
+  via `/api/v1/openapi.json` (generate them; do not drift the contract).
+- Modifies ADO shared infra files (`app.yaml`, `requirements.txt`,
+  `.gitignore`, `workspace_auth.py`, `ticket_models.py`) without an explicit
+  task that requires it.
 
 ---
 
@@ -281,7 +427,9 @@ Before opening a PR you must have:
 2. Added or updated targeted tests (when the test harness exists; otherwise
    document the manual validation steps in `## Validation`).
 3. Confirmed `npm run lint` (currently `tsc --noEmit`) is clean for touched
-   files.
-4. Included a migration plan if a persisted shape changed (the `localStorage`
-   key `ab_inbev_tickets_db_v8` must be versioned when its schema evolves).
+   files. Run `ruff check .` and `pytest -q` in
+   `apps/access-requests-portal/` if you touched anything Python-adjacent.
+4. Included a migration plan if a persisted shape changed (Delta column
+   change → backend issues a new `vN` table or additive migration; UI prefs
+   in `localStorage` must be versioned by key).
 5. Produced the four-block deliverable defined in section 1.
