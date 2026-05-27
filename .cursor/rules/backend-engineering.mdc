@@ -42,24 +42,25 @@ contracts**. Always honor them.
 
 ### GitHub — `gregoryfiel/gestao_lancamento_de_chamados`
 
-- **Default = always create a new branch** for any change. Cut from an
-  up-to-date `main` (`git pull --ff-only`).
-- Branch naming **`v1.x.y`** as defined in
-  [`.cursor/rules/frontend-agent.mdc`](./frontend-agent.mdc) §1
-  (increment `x` for feat/improvement, `y` for fix). Backend changes follow the
-  same `v1.x.y` scheme.
+- **Agent backend docs (default for the backend agent):** always work on
+  **`agent/backend-docs`**, reset to `origin/main` after each merged PR (same
+  reset policy as the ADO agent branch).
+- **Humans / release docs:** may still use **`v1.x.y`** branches as defined in
+  [`.cursor/rules/frontend-agent.mdc`](./frontend-agent.mdc) §1 when preparing
+  a versioned documentation drop.
 - Conventional Commits in English. PR target: `main`.
-- Never push directly to `main`; never reuse a previously merged `v1.x.y`.
+- Never push directly to `main`.
 
 ### Azure DevOps — `data-platform-bees-consumer-mkt-strategy-insights`
 (monorepo path `apps/access-requests-portal/`)
 
-- **Default = create a new branch** (`feat/access-requests-portal-…`,
-  `fix/access-requests-portal-…`, etc.) cut from `master`.
-- **Exception:** if the user explicitly asks to keep working on an existing
-  feature branch (e.g. to add a follow-up commit to an open PR before review),
-  stay on that branch. When the user does not specify, ask or default to a
-  **new branch**.
+- **Agent backend (default for the backend agent):** always work on
+  **`agent/access-requests-portal-backend`**, cut once from `master` and reset
+  to `origin/master` after each merged PR (`git reset --hard` + push
+  `--force-with-lease` on that branch only).
+- **Humans / one-off tasks:** may still use `feat/access-requests-portal-…` or
+  `fix/access-requests-portal-…` cut from `master` when they prefer isolated
+  feature branches.
 - Conventional Commits in English. PR target: `master`. Do not modify shared
   infrastructure files (`app.yaml`, `requirements.txt`, `.gitignore`,
   `workspace_auth.py`, `ticket_models.py`) unless the task explicitly requires
@@ -75,9 +76,9 @@ contracts**. Always honor them.
 
 ### Standing automation policy (no need to ask)
 
-- **GitHub:** the agent MAY commit and push to the working `v1.x.y` branch
-  without asking. PR creation against `main` still requires explicit user
-  intent unless previously scheduled in the conversation.
-- **ADO:** the agent MAY commit and push to the working feature branch without
-  asking, but **MUST NOT** create or update Pull Requests automatically.
+- **GitHub:** the agent MAY commit and push to **`agent/backend-docs`** (or a
+  human `v1.x.y` branch when instructed) without asking. PR creation against
+  `main` still requires explicit user intent unless previously scheduled.
+- **ADO:** the agent MAY commit and push to **`agent/access-requests-portal-backend`**
+  without asking, but **MUST NOT** create or update Pull Requests automatically.
 - Both remotes: keep diffs minimal and commit messages Conventional + English.

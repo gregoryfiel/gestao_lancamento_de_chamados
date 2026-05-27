@@ -34,17 +34,18 @@
 | # | Method | Path | Purpose |
 |---|--------|------|---------|
 | 1 | `GET` | `/api/v1/health` | Liveness. |
-| 2 | `GET` | `/api/v1/whoami` | BEES SPN smoke test (server-only auth). |
-| 3 | `GET` | `/api/v1/status` | UC table reachability + SQL probe. |
-| 4 | `GET` | `/api/v1/tickets` | List non-deleted tickets, filters + pagination. |
-| 5 | `POST` | `/api/v1/tickets` | Create ticket + `created` audit event. |
-| 6 | `GET` | `/api/v1/tickets/{ticket_id}` | Fetch one ticket. |
-| 7 | `PATCH` | `/api/v1/tickets/{ticket_id}` | Partial update + `updated` event. |
-| 8 | `DELETE` | `/api/v1/tickets/{ticket_id}` | Soft delete (`is_deleted=true`) + `deleted` event. |
-| 9 | `POST` | `/api/v1/tickets:bulk-update` | Many partial updates in one round trip; per-row outcome. |
-| 10 | `POST` | `/api/v1/tickets:bulk-create` | Many creates in one round trip; per-row outcome (`index`, `ticket_id`). |
-| 11 | `GET` | `/api/v1/tickets/export` | Stream filtered export as **XLSX** (default) or **CSV** (`Content-Disposition: attachment`). |
-| 12 | `GET` | `/api/v1/tickets/{ticket_id}/events` | Audit rows (newest first), cursor pagination. |
+| 2 | `GET` | `/api/v1/metrics` | In-process Prometheus-style counters (ops/smoke; **not** for the SPA). |
+| 3 | `GET` | `/api/v1/whoami` | BEES SPN smoke test (server-only auth). |
+| 4 | `GET` | `/api/v1/status` | UC table reachability + SQL probe. |
+| 5 | `GET` | `/api/v1/tickets` | List non-deleted tickets, filters + pagination. |
+| 6 | `POST` | `/api/v1/tickets` | Create ticket + `created` audit event. |
+| 7 | `GET` | `/api/v1/tickets/{ticket_id}` | Fetch one ticket. |
+| 8 | `PATCH` | `/api/v1/tickets/{ticket_id}` | Partial update + `updated` event. |
+| 9 | `DELETE` | `/api/v1/tickets/{ticket_id}` | Soft delete (`is_deleted=true`) + `deleted` event. |
+| 10 | `POST` | `/api/v1/tickets:bulk-update` | Many partial updates in one round trip; per-row outcome. |
+| 11 | `POST` | `/api/v1/tickets:bulk-create` | Many creates in one round trip; per-row outcome (`index`, `ticket_id`). |
+| 12 | `GET` | `/api/v1/tickets/export` | Stream filtered export as **XLSX** (default) or **CSV** (`Content-Disposition: attachment`). |
+| 13 | `GET` | `/api/v1/tickets/{ticket_id}/events` | Audit rows (newest first), cursor pagination. |
 
 ### 2.1 Query parameters
 
@@ -92,7 +93,7 @@ Response is **binary** (not JSON). Read the filename from `Content-Disposition`.
 |------|------|
 | `200` | success on `GET`, `PATCH`, `DELETE`, `POST :bulk-update`, `POST :bulk-create` (envelope always 200; per-row `201` inside `results[]`). |
 | `201` | success on `POST /tickets` (create). |
-| `400` | malformed body, invalid query (`opened_from > opened_to`), invalid `ticket_id` format, unknown export `format`/`columns`, export `max_rows` exceeded. |
+| `400` | malformed body, invalid query (`opened_from > opened_to`), invalid `ticket_id` format, unknown export `format`/`columns`, export `max_rows` exceeded, **invalid `status` or `priority` on writes** (see below). |
 | `404` | unknown / soft-deleted ticket. |
 | `409` | `row_version` mismatch (optimistic-lock violation). |
 | `503` | downstream warehouse not reachable. |
@@ -103,6 +104,29 @@ its own `status_code` (200 / 400 / 404 / 409) inside `results[]`.
 Bulk create **never** fails the whole batch on one bad row: each item carries
 `status_code` `201` (success) or `400` (validation / domain error) inside
 `results[]`.
+
+### 2.3 Write-time enum validation (`status`, `priority`)
+
+On **`POST /tickets`**, **`PATCH /tickets/{id}`**, **`POST :bulk-update`**, and
+**`POST :bulk-create`**, the BFF rejects unknown `status` / `priority` values
+with **`400`** and a `detail` string listing allowed values. **Reads** (`GET`
+list/one/export) still return legacy arbitrary strings already stored in Delta.
+
+**Allowed `status` (writes):** `Aberto`, `Em Atendimento`, `Pendente`,
+`Resolvido`, `Cancelado`, plus English aliases (`open`, `in_progress`, `done`,
+`cancelled`, …).
+
+**Allowed `priority` (writes):** `low`, `baixa`, `normal`, `medium`, `media`,
+`high`, `alta`, `urgent`, `critical`, `critica`.
+
+Example:
+
+```json
+{ "detail": "invalid status: 'Foo' (allowed: Aberto, Cancelado, ...)" }
+```
+
+Bulk endpoints surface the same message per row in `results[].error` with
+`status_code: 400` (envelope stays `200`).
 
 ---
 
@@ -616,8 +640,9 @@ Response: binary body, `Content-Disposition: attachment; filename="tickets-20260
 | **PDF for stakeholders** | **Not provided** (by design). | Print stylesheet + `window.print()` (user saves as PDF in the browser). |
 | **OpenAPI / types** | Serves `/api/v1/openapi.json`. | Generates TS types; implements `HttpTicketsRepository`. |
 | **Auth / secrets** | BEES SPN, UC grants, warehouse id. | Same-origin fetch only; never store tokens or export blobs in `localStorage`. |
+| **Metrics** | `GET /api/v1/metrics` (Prometheus text, in-process). | **Do not call** from the SPA; ops/smoke only. |
 
 ---
 
-**Last updated:** 2026-05-27 (matches BFF on ADO branch
-`feat/access-requests-portal-export-and-crud-completion`).
+**Last updated:** 2026-05-27 (matches BFF on ADO `master` after hardening wave;
+agent branch `agent/access-requests-portal-backend`).
