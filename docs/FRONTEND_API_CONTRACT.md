@@ -42,7 +42,9 @@
 | 7 | `PATCH` | `/api/v1/tickets/{ticket_id}` | Partial update + `updated` event. |
 | 8 | `DELETE` | `/api/v1/tickets/{ticket_id}` | Soft delete (`is_deleted=true`) + `deleted` event. |
 | 9 | `POST` | `/api/v1/tickets:bulk-update` | Many partial updates in one round trip; per-row outcome. |
-| 10 | `GET` | `/api/v1/tickets/{ticket_id}/events` | Audit rows (newest first), cursor pagination. |
+| 10 | `POST` | `/api/v1/tickets:bulk-create` | Many creates in one round trip; per-row outcome (`index`, `ticket_id`). |
+| 11 | `GET` | `/api/v1/tickets/export` | Stream filtered export as **XLSX** (default) or **CSV** (`Content-Disposition: attachment`). |
+| 12 | `GET` | `/api/v1/tickets/{ticket_id}/events` | Audit rows (newest first), cursor pagination. |
 
 ### 2.1 Query parameters
 
@@ -70,19 +72,37 @@
 |------|------|---------|-------|
 | `row_version` | int >= 1 | — | optional optimistic-locking precondition. |
 
+**`GET /api/v1/tickets/export`**
+
+| Name | Type | Default | Notes |
+|------|------|---------|-------|
+| `format` | `xlsx` \| `csv` | `xlsx` | MIME and file extension follow this value. |
+| `status` | string | — | same semantics as list. |
+| `requester_email` | string | — | same semantics as list. |
+| `opened_from` | `YYYY-MM-DD` | — | same semantics as list. |
+| `opened_to` | `YYYY-MM-DD` | — | same semantics as list. |
+| `columns` | comma-separated | default whitelist | Allowed: `ticket_id`, `status`, `priority`, `requester_email`, `employee_id`, `team`, `role`, `require_system`, `summary`, `opened_on`, `submitted_at`, `updated_at`, `jira_ticket` (`jira_ticket` is derived from `reference_url`). |
+| `max_rows` | int 1..100000 | 100000 | safety cap; `400` if more rows match. |
+
+Response is **binary** (not JSON). Read the filename from `Content-Disposition`.
+
 ### 2.2 Status codes
 
 | Code | When |
 |------|------|
-| `200` | success on `GET`, `PATCH`, `DELETE`, `POST :bulk-update`. |
+| `200` | success on `GET`, `PATCH`, `DELETE`, `POST :bulk-update`, `POST :bulk-create` (envelope always 200; per-row `201` inside `results[]`). |
 | `201` | success on `POST /tickets` (create). |
-| `400` | malformed body, invalid query (`opened_from > opened_to`), invalid `ticket_id` format. |
+| `400` | malformed body, invalid query (`opened_from > opened_to`), invalid `ticket_id` format, unknown export `format`/`columns`, export `max_rows` exceeded. |
 | `404` | unknown / soft-deleted ticket. |
 | `409` | `row_version` mismatch (optimistic-lock violation). |
 | `503` | downstream warehouse not reachable. |
 
 Bulk update **never** returns `409` at the envelope level: each row carries
 its own `status_code` (200 / 400 / 404 / 409) inside `results[]`.
+
+Bulk create **never** fails the whole batch on one bad row: each item carries
+`status_code` `201` (success) or `400` (validation / domain error) inside
+`results[]`.
 
 ---
 
@@ -151,6 +171,36 @@ export interface BulkUpdateResponse {
   succeeded: number;
   failed: number;
   results: BulkUpdateResult[];
+}
+
+export interface BulkCreateRequest {
+  items: TicketCreate[]; // 1..200 entries
+}
+
+export interface BulkCreateResult {
+  index: number;
+  ok: boolean;
+  status_code: 201 | 400;
+  ticket_id?: string | null;
+  row?: TicketRead | null;
+  error?: string | null;
+}
+
+export interface BulkCreateResponse {
+  total: number;
+  succeeded: number;
+  failed: number;
+  results: BulkCreateResult[];
+}
+
+export interface ExportQuery {
+  format?: "xlsx" | "csv";
+  status?: string;
+  requesterEmail?: string;
+  openedFrom?: string;
+  openedTo?: string;
+  columns?: string[]; // sent as comma-separated on the wire
+  maxRows?: number;
 }
 
 export interface TicketCreate {
@@ -265,6 +315,8 @@ export interface TicketsRepository {
   patch(ticketId: string, patch: TicketUpdate): Promise<TicketRead>;
   remove(ticketId: string, opts?: { rowVersion?: number }): Promise<TicketRead>;
   bulkUpdate(items: BulkUpdateRequest["items"]): Promise<BulkUpdateResponse>;
+  bulkCreate(items: BulkCreateRequest["items"]): Promise<BulkCreateResponse>;
+  export(opts: ExportQuery): Promise<{ blob: Blob; filename: string }>;
   listEvents(ticketId: string, opts?: { before?: string; limit?: number }): Promise<TicketEventRead[]>;
 }
 
@@ -316,8 +368,34 @@ export class HttpTicketsRepository implements TicketsRepository {
     return this.request(`${this.base}/tickets?${qs}`);
   }
   // ...remaining methods omitted for brevity.
+
+  async export(opts: ExportQuery): Promise<{ blob: Blob; filename: string }> {
+    const qs = new URLSearchParams();
+    qs.set("format", opts.format ?? "xlsx");
+    if (opts.status) qs.set("status", opts.status);
+    if (opts.requesterEmail) qs.set("requester_email", opts.requesterEmail);
+    if (opts.openedFrom) qs.set("opened_from", opts.openedFrom);
+    if (opts.openedTo) qs.set("opened_to", opts.openedTo);
+    if (opts.columns?.length) qs.set("columns", opts.columns.join(","));
+    if (opts.maxRows !== undefined) qs.set("max_rows", String(opts.maxRows));
+    const res = await fetch(`${this.base}/tickets/export?${qs}`, {
+      credentials: "same-origin",
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiError;
+      throw new Error(err.detail ?? `${res.status} ${res.statusText}`);
+    }
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = match?.[1] ?? `tickets-export.${opts.format ?? "xlsx"}`;
+    const blob = await res.blob();
+    return { blob, filename };
+  }
 }
 ```
+
+Trigger download in the UI with `URL.createObjectURL(blob)` — **do not**
+persist export bytes in `localStorage`.
 
 ---
 
@@ -371,9 +449,9 @@ Goal: cut the SPA over without losing tickets users already created locally.
    - When `useBackend = true`, the SPA reads from the API but keeps
      writing to `localStorage` as a backup.
 4. **One-shot import.**
-   - Use `POST /api/v1/tickets:bulk-update` *not* for import (it is
-     update-only); call `POST /api/v1/tickets` per row, or land a
-     dedicated bulk-create endpoint first if list is large.
+   - Prefer `POST /api/v1/tickets:bulk-create` with up to 200 `TicketCreate`
+     items per call. Fall back to `POST /api/v1/tickets` per row only when
+     you need row-by-row UX. Never use `bulk-update` for import (update-only).
 5. **Cutover.**
    - Flip `useBackend = true` permanently, stop writing to
      `localStorage`, retire simulated Graph keys.
@@ -437,36 +515,109 @@ Goal: cut the SPA over without losing tickets users already created locally.
 }
 ```
 
+### 8.3 `POST /api/v1/tickets:bulk-create` (partial failure)
+
+**Request**
+
+```json
+{
+  "items": [
+    {
+      "requester_email": "alice@ab-inbev.com",
+      "employee_id": "EMP-1",
+      "require_system": "AD Group",
+      "role": "ROLE_X",
+      "team": "Martech",
+      "status": "Aberto",
+      "priority": "normal",
+      "opened_on": "2026-05-26",
+      "submitted_at": "2026-05-26T10:00:00Z",
+      "summary": "row 1"
+    },
+    {
+      "requester_email": "",
+      "employee_id": "EMP-2",
+      "require_system": "AD Group",
+      "role": "ROLE_X",
+      "team": "Martech",
+      "status": "Aberto",
+      "priority": "normal",
+      "opened_on": "2026-05-26",
+      "submitted_at": "2026-05-26T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Response 200 — `BulkCreateResponse`**
+
+```json
+{
+  "total": 2,
+  "succeeded": 1,
+  "failed": 1,
+  "results": [
+    { "index": 0, "ok": true, "status_code": 201, "ticket_id": "…", "row": { "…": "…" } },
+    { "index": 1, "ok": false, "status_code": 400, "error": "requester_email is required" }
+  ]
+}
+```
+
+### 8.4 `GET /api/v1/tickets/export`
+
+Example: `GET /api/v1/tickets/export?format=xlsx&status=Aberto&columns=ticket_id,status,requester_email`
+
+Response: binary body, `Content-Disposition: attachment; filename="tickets-20260527-1530.xlsx"`.
+
 ---
 
-## 9. Out of scope (today)
+## 9. Out of scope (BFF today)
 
-The following items are **not** offered by the BFF yet; if the UI needs
-them, open a coordination issue / branch:
-
-- User-level identity in requests (the BFF only authenticates against UC
-  with the BEES SPN; user identity is established by the Databricks Apps
-  proxy and is not surfaced in `/api/v1/whoami` as the **caller**).
-- CSV export endpoint (`GET /api/v1/export.csv`).
-- Bulk **create**.
+- User-level identity in requests (the BFF authenticates to UC with the BEES
+  SPN; the Databricks Apps proxy establishes the human user and does not pass
+  it through these routes yet).
+- **PDF generation on the server** — stakeholders get PDF via the SPA
+  (`window.print()` + `@media print`, or a client library such as `jsPDF`).
 - Server-side full-text search across `summary` / `justification`.
+- Dashboard KPIs (no analytics endpoints yet).
 
 ---
 
 ## 10. Quick checklist for the front-end agent
 
 - [ ] Read this doc + `BACKEND_ENGINEERING_CONTEXT.md` once.
-- [ ] Generate `src/lib/api-types.ts` from `/api/v1/openapi.json`.
-- [ ] Add `TicketsRepository` interface and refactor consumers to use it.
-- [ ] Implement `HttpTicketsRepository` with the field mapping table (§6).
-- [ ] Wire a `useBackend` flag (env or runtime toggle).
-- [ ] Surface `409` as an inline “registo desatualizado” notice with a refresh
-      action, not a destructive overwrite.
-- [ ] Render bulk update outcomes per row (badge per `results[].status_code`).
-- [ ] Pass `X-Request-ID` through to the toast system for support reports.
-- [ ] Bump the `localStorage` key when payload shape changes.
+- [ ] Generate types from `/api/v1/openapi.json` (includes `bulk-create` + export).
+- [ ] Extend `TicketsRepository` with `bulkCreate` and `export` (§5).
+- [ ] **Filters bar** + offset pagination (`limit` / `offset` / Load more).
+- [ ] **Drawer edit** — send `row_version`; handle `409` with refetch + banner.
+- [ ] **Delete** — confirmation modal; optional `row_version` query param.
+- [ ] **Events panel** — `listEvents` with `before` cursor and relative timestamps.
+- [ ] **Bulk update UI** — multi-select + per-row result badges.
+- [ ] **Export modal** — format, columns, filters → `repo.export()` → blob download.
+- [ ] **Print PDF** — `window.print()` + print CSS (no BFF call).
+- [ ] **Import UI** (optional wave) — parse CSV/XLSX client-side → `bulkCreate`.
+- [ ] Pass `X-Request-ID` through toasts for support.
 
 ---
 
-**Last updated:** 2026-05-26 (matches BFF state on ADO branch
-`feat/access-requests-portal-bulk-update-and-response-models`).
+## 11. Responsibilities — BFF vs SPA
+
+| Capability | BFF (Python / Unity Catalog) | SPA (`apps/access-requests-portal/web/`) |
+|------------|-------------------------------|------------------------------------------|
+| **List / filter / paginate** | `GET /tickets` — SQL filters, offset/limit, authoritative row set. | Filters bar, URL state, Load more, table rendering, empty/error states. |
+| **Get one** | `GET /tickets/{id}` — fresh row + `row_version`. | Drawer may call `get` after `409` or on open; display labels and badges. |
+| **Create** | `POST /tickets` — validate, persist, audit event. | Create modal/form, client-side required-field checks, success toast + refresh. |
+| **Patch** | `PATCH /tickets/{id}` — optimistic lock via `row_version`. | Edit form, send `row_version`, map `409` to “stale row, reload”. |
+| **Delete (soft)** | `DELETE /tickets/{id}` — `is_deleted`, audit event. | Confirm dialog, pass `row_version`, remove row from selection. |
+| **Bulk update** | `POST /tickets:bulk-update` — per-row outcomes, no batch abort. | Multi-select toolbar, status picker, per-row badges, refresh on `409`. |
+| **Bulk create / import** | `POST /tickets:bulk-create` — per-row `201`/`400`. | File picker, CSV/XLSX parse, preview, call `bulkCreate`, show per-row results. |
+| **Audit events** | `GET /tickets/{id}/events` — cursor `before`. | Timeline in drawer, `event_type` labels, relative time, collapsible payload. |
+| **Excel / CSV export** | `GET /tickets/export` — filtered bytes, `Content-Disposition`. | Export modal (format, columns, filters), blob download via `URL.createObjectURL`. |
+| **PDF for stakeholders** | **Not provided** (by design). | Print stylesheet + `window.print()` (user saves as PDF in the browser). |
+| **OpenAPI / types** | Serves `/api/v1/openapi.json`. | Generates TS types; implements `HttpTicketsRepository`. |
+| **Auth / secrets** | BEES SPN, UC grants, warehouse id. | Same-origin fetch only; never store tokens or export blobs in `localStorage`. |
+
+---
+
+**Last updated:** 2026-05-27 (matches BFF on ADO branch
+`feat/access-requests-portal-export-and-crud-completion`).

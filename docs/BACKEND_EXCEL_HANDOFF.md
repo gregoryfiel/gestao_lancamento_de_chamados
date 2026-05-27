@@ -10,6 +10,11 @@ SOLID, DDD, TDD, hexagonal + repository + OpenAPI contract with the SPA).
 mapping `pessoaEmail ↔ requester_email` etc., and the `localStorage → API`
 migration plan): [`FRONTEND_API_CONTRACT.md`](./FRONTEND_API_CONTRACT.md).
 
+> **Status (2026-05-27):** Excel-as-ledger questions in §5 below are largely
+> **superseded** by Unity Catalog + `GET /tickets/export`. For export columns,
+> bulk import, and **BFF vs SPA responsibilities**, use
+> [`FRONTEND_API_CONTRACT.md`](./FRONTEND_API_CONTRACT.md) **§11**.
+
 ---
 
 ## 1. Current state (frontend-only)

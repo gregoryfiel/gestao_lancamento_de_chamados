@@ -116,6 +116,9 @@ Entry points and layout:
   `<html class="light">` and persists choice in `localStorage['arp-theme']`.
 - `web/src/lib/api-types.ts`, `web/src/lib/useTickets.ts`,
   `web/src/lib/repositories/{TicketsRepository,HttpTicketsRepository}.ts`.
+- Export downloads use `repo.export()` → `fetch` blob →
+  `URL.createObjectURL` + programmatic `<a download>` (never persist XLSX/CSV
+  in `localStorage`).
 
 Persistence:
 - No `localStorage` for business data. Source of truth is the BFF
@@ -464,6 +467,8 @@ Reject or rewrite any PR that does the following:
   `web/src/index.css`, or reuse one already declared).
 - Persists the theme choice anywhere other than `localStorage['arp-theme']`
   (allowed UI-pref key); or hard-codes the theme bypassing `useTheme()`.
+- Persists export file bytes (XLSX/CSV/PDF) in `localStorage` or `sessionStorage`
+  — stream to disk via blob download only.
 - Hand-writes new BFF response types when the contract already exposes them
   via `/api/v1/openapi.json` (generate them; do not drift the contract).
 - Modifies ADO shared infra files (`app.yaml`, `requirements.txt`,
