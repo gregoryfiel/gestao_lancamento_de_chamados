@@ -20,9 +20,12 @@
 - **Same-origin call** to the BFF (`/api/v1/...`). No CORS, no API keys in
   the browser. The SPA ships next to the FastAPI app in a single Databricks
   App bundle (`apps/access-requests-portal/static/`).
-- **Dark-first**, indigo + cyan accents, dense layout, BEES-team visual
-  identity (see §5). Light theme is a first-class toggle, persisted in
-  `localStorage`, applied via `<html class="light">`.
+- **OneDS Light only.** Single theme from Token Studio (`OneDS` export). No
+  dark/light toggle. CSS variables in `web/src/index.css` (`--arp-*`); chart
+  hex literals in `web/src/lib/brand-tokens.ts`.
+- **Palette.** Gold `#ebb400` primary CTAs, azure `#1d79af` links/info,
+  light surfaces (`#fbfbf9` page, `#ffffff` cards). Status: positive /
+  attention / negative / informative per OneDS Foundations.
 - **English UI chrome**. Data values can still arrive in pt-BR from the BE
   (e.g. `status="Aberto"`); the SPA translates via `lib/status-i18n.ts`.
 - **No PR auto-creation on ADO.** Push to a feature branch and stop — the
@@ -131,14 +134,15 @@ apps/access-requests-portal/
 
 ## 5. Visual identity & design system
 
-- **Dark-first.** Default `<html>` has no class; `.light` toggles light
-  theme. Theme state lives in `ThemeContext` and persists to
-  `localStorage.access-portal-theme`. An inline script in `index.html`
-  applies the class before React mounts to avoid FOUC.
-- **Palette.** Slate-900 surfaces, indigo-500/cyan-500 accents for primary
-  actions, emerald/amber/rose for SLA traffic lights, rose for destructive.
-- **Density.** `text-sm` for body, `text-[11px]` for metadata, `font-mono`
-  for ticket IDs, row_version and Jira keys. Rows pack tight (`py-2.5`).
+- **OneDS Light (fixed).** No theme toggle. Tokens live in `:root` inside
+  `web/src/index.css` and map to the Martech One Way / OneDS export
+  (`brand.primary` gold, `brand.secondary` azure, semantic status colors).
+- **Typography.** **Barlow** SemiBold for headings; **Work Sans** for all
+  body copy, metadata, ticket IDs and Jira keys (no separate mono stack).
+- **Palette.** Gold primary (`#ebb400`), azure info/links (`#1d79af`),
+  emerald/amber/rose status chips via `.arp-chip-semantic-*` classes.
+- **Density.** `text-sm` for body, `text-[11px]` for metadata. Rows pack
+  tight (`py-2.5`).
 - **Action accents.** Grant rows render as-is. Revoke rows get a rose left
   border via `data-action-kind="revoke"` on `<tr>` (see `index.css`).
 - **Phase ownership.** The "Time open" column is **not** a single timer —
